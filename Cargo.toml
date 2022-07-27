@@ -1,10 +1,9 @@
 [package]
 name = "delta_inc"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 description = "An API capturing delta transformations and incremental computations"
-homepage = "http://whiley.org"
 repository = "https://github.com/DavePearce/DeltaInc.rs"
 
 [dependencies]
