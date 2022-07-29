@@ -40,6 +40,20 @@ impl<T: Transformable + Clone> Transformer for T {
     }
 }
 
+/// A trait capturing the notion of a type where a _delta_ can be
+/// computed between two of its items.  For example, given
+/// `a1=[0,1,2]` and `a2=[1,1,2]`, we could compute a delta `d` such
+/// that `a1.transform_into(d)` returns `a2`.  Observe that the delta
+/// has an _orientation_ which (implicitly) means it goes from _this_
+/// item to the _other_,
+trait Diffable {
+    type Delta;
+
+    /// Compute a diff between this item and another, yielding a delta
+    /// `d` such that `this.transform(d) == other` holds.
+    fn diff(&self, other: &Self) -> Self::Delta;
+}
+
 /// A trait capturing the essence of an incremental computation from
 /// `self` to some item `T`.  This is similar to the `Into` trait, but
 /// with the ability to work with _deltas_.  To understand this,
