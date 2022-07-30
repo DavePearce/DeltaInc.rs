@@ -46,7 +46,7 @@ impl<T: Transformable + Clone> Transformer for T {
 /// that `a1.transform_into(d)` returns `a2`.  Observe that the delta
 /// has an _orientation_ which (implicitly) means it goes from _this_
 /// item to the _other_,
-trait Diffable {
+pub trait Diffable {
     type Delta;
 
     /// Compute a diff between this item and another, yielding a delta

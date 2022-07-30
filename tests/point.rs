@@ -1,4 +1,4 @@
-use delta_inc::{Incremental,Transformable,Transformer};
+use delta_inc::{Diffable,Incremental,Transformable,Transformer};
 
 #[derive(PartialEq,Debug,Clone,Copy)]
 struct Point { x: i64, y: i64 }
@@ -21,6 +21,16 @@ impl Transformable for Point {
         self.x += d.x;
         self.y += d.y;
     }    
+}
+
+impl Diffable for Point {
+    type Delta = Point;
+
+    fn diff(&self, other: &Self) -> Self::Delta {
+	let dx = self.x - other.x;
+	let dy = self.y - other.y;
+	Point{x:dx,y:dy}
+    }
 }
 
 /// A simple reduction from a `Point` to a `Sum` which is done just by
@@ -71,6 +81,19 @@ fn test_transformable_01() {
     let mut p = Point::new(1,2);
     p.transform(&Point::new(1,1));
     assert_eq!(p,Point{x:2,y:3});
+}
+
+fn test_diff_01() {
+    let p1 = Point::new(1,2);
+    let p2 = Point::new(4,6);
+    let d1 = p1.diff(&p2);
+    let d2 = p2.diff(&p2);
+    //
+    assert_eq!(d1,Point::new(3,4));
+    assert_eq!(d2,Point::new(-3,-4));
+    //
+    assert_eq!(p2,p1.transform_into(&d1));
+    assert_eq!(p1,p2.transform_into(&d2));
 }
 
 #[test]
