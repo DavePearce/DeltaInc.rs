@@ -1,32 +1,55 @@
+use std::result::Result;
+
+// ===================================================================
+// Transformable
+// ===================================================================
+
 /// A trait describing something which can be _transformed_ by
 /// applying a _delta_.  For example, an array `[0,1,2]` can be
 /// transformed into another `[3,1,2]` by applying a delta which
-/// assigns element `0` to `3`.  **This trait describes the functional
-/// case, where the receiver is not modified**.
+/// assigns element `0` to `3`.  This trait describes the functional
+/// case, where the receiver is not modified.
 pub trait Transformer {
     type Delta;
-
-    /// Apply a given delta to this transformable item, yielded a
+    /// Apply a given delta to this transformable item, yielding a
     /// potentially updated version of this item.
-    fn transform_into(&self,d: &Self::Delta) -> Self;
+    fn transform_into(&self,d: &Self::Delta) -> Self;    
 }
+
+/// A trait describing something which can be _transformed_ by
+/// applying a _delta_.  For example, an array `[0,1,2]` can be
+/// transformed into another `[3,1,2]` by applying a delta which
+/// assigns element `0` to `3`.  This trait describes the functional
+/// case, where the receiver is not modified.  **Furthermore, this
+/// trait allows for the possibility that the transformation may not
+/// succeed**.
+pub trait PartialTransformer: Sized {
+    type Delta;
+    type Error;
+    /// Apply a given delta to this transformable item, yielded a
+    /// potentially updated version of this item or an error..
+    fn transform_into(&self,d: &Self::Delta) -> Result<Self,Self::Error>;    
+}
+
+// ===================================================================
+// Transformable
+// ===================================================================
 
 /// A trait describing something which can be _transformed_ in place
 /// by applying a _delta_.  For example, an array `[0,1,2]` can be
 /// transformed into another `[3,1,2]` by applying a delta which
-/// assigns element `0` to `3`.  **In this case, the receiver is
-/// modified in place**.
+/// assigns element `0` to `3`.  This trait describes the imperative
+/// case where the receiver is modified in place.
 pub trait Transformable {
     type Delta;
-
     /// Apply a given delta to this transformable item, yielded a
     /// potentially updated version of this item.
     fn transform(&mut self,d: &Self::Delta);
 }
 
-/// Provide a default trait implementation for every type which is
-/// transformable.  This first clones the item, and then transforms
-/// it in place.
+/// Provides a default trait implementation for every type which is
+/// transformable.  This first clones the item, and then transforms it
+/// in place.
 impl<T: Transformable + Clone> Transformer for T {
     type Delta = T::Delta;
 
@@ -40,6 +63,41 @@ impl<T: Transformable + Clone> Transformer for T {
     }
 }
 
+/// A trait describing something which can be _transformed_ in place
+/// by applying a _delta_.  For example, an array `[0,1,2]` can be
+/// transformed into another `[3,1,2]` by applying a delta which
+/// assigns element `0` to `3`.  This trait describes the imperatice
+/// case where the receiver is modified in place.  **Furthermore, this
+/// trait allows for the possibility that an error is returned**.
+pub trait PartiallyTransformable : Sized {
+    type Delta;
+    type Error;
+    /// Apply a given delta to this transformable item, yielding a
+    /// potentially updated version of this item.
+    fn transform(&mut self,d: &Self::Delta) -> Result<(),Self::Error>;
+}
+
+/// Provides a default trait implementation for every type which is
+/// transformable.  This first clones the item, and then transforms it
+/// in place.
+impl<T: PartiallyTransformable + Clone> PartialTransformer for T {
+    type Delta = T::Delta;
+    type Error = T::Error;
+
+    fn transform_into(&self,d: &Self::Delta) -> Result<Self,Self::Error> {
+        // Clone
+        let mut r = self.clone();
+        // Transform
+        r.transform(d)?;
+        // Done
+        Ok(r)
+    }
+}
+
+// ===================================================================
+// Diffable
+// ===================================================================
+
 /// A trait capturing the notion of a type where a _delta_ can be
 /// computed between two of its items.  For example, given
 /// `a1=[0,1,2]` and `a2=[1,1,2]`, we could compute a delta `d` such
@@ -48,7 +106,6 @@ impl<T: Transformable + Clone> Transformer for T {
 /// item to the _other_,
 pub trait Diffable {
     type Delta;
-
     /// Compute a diff between this item and another, yielding a delta
     /// `d` such that `this.transform(d) == other` holds.
     fn diff(&self, other: &Self) -> Self::Delta;
