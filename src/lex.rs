@@ -1,0 +1,111 @@
+use std::convert::From;
+use std::iter::Iterator;
+use crate::Transformable;
+use crate::seq::{Sequence};
+
+/// ==================================================================
+/// Span
+/// ==================================================================
+
+/// An abstract notion of a token which groups one or more items in
+/// an underlying sequence together.
+pub trait Span {
+    /// Get the starting index of this token in the underlying
+    /// sequence.
+    fn start(&self) -> usize;
+    /// Get the last index of this token in the underlying sequence.
+    /// Observe that tokens cannot be "zero sized", hence `start ==
+    /// end` represents a token of size one.
+    fn end(&self) -> usize;
+}
+
+/// ==================================================================
+/// Tokeniser
+/// ==================================================================
+
+/// Represents something which maps one (or more) items from an
+/// _underlying sequence_ to a given _token_ (or an error).  In essence,
+/// we are "folding" one or more items into a single token (which, for
+/// example, is a useful characterisation for lexers).
+///
+/// The challenge is that we don't know ahead of time how many items
+/// are required for each token.  As such, the folding "consumes" some
+/// number of items from the stream.
+pub trait Tokeniser {
+    /// The type of items in the underlying sequence.
+    type Input;
+    /// The type of tokens produced by this tokenizer.
+    type Output:Span;
+    /// Identifies the kind of error which can arise during
+    /// tokenisation.
+    type Error;
+    /// Get the `Token` starting at a given `index` in an underlying
+    /// sequence.
+    fn scan(&self, seq: &[Self::Input], index: usize) -> Result<Self::Output,Self::Error>;
+}
+
+/// Represents the results of a _lexical analysis_ of a sequence of
+/// items (henceforth, the _underlying sequence_) to a sequence of
+/// _tokens_.  This is characterised as a _data structure_
+/// (i.e. rather than a _function_ which would be more common) to
+/// faciliate to facilitate incremental updates.  Since tokens can
+/// span multiple items in the underlying sequence, managing
+/// incremental updates is non-trivial.  Furthermore, there is a
+/// built-in assumption that tokenisation can fail (i.e. there are
+/// sequences of items which do not map to any tokens).
+///
+/// For example, lets consider the common case of turning character
+/// sequences into tokens (i.e. _lexing_ as performed by a compiler).
+/// Suppose tokens are either _identifiers_ (i.e. sequences of
+/// alphabetic characters), _numbers_ (i.e. sequences of numeric
+/// characters) or _operators_ (e.g. braces).  Furthermore, not all
+/// characters map to tokens, and thus lexing can fail with an error.
+/// To manage incremental updates efficiently the tokenizer internally
+/// maintains meta-data which identifies token boundaries:
+///
+/// ```text
+///         0 1 2 3 4 5 6 7 8 9
+///         +-+-+-+-+-+-+-+-+-+-+
+/// bytes:  |(|1|2|3|)|h|e|l|l|o|
+///         +-+-+-+-+-+-+-+-+-+-+
+///          | |     | |
+///          | |     | |
+///         +-+-+-+-+-+-+-+-+-+-+
+/// starts: |*|*| | |*|*| | | | |
+///         +-+-+-+-+-+-+-+-+-+-+
+/// ```
+/// Here we see the starting boundaries of each token identified by
+/// `*` (which corresponds with `true`).
+pub struct Tokenisation<T : Tokeniser> {
+    /// The underlying sequence being (incrementally) tokenized by
+    /// this lexer.
+    items: Vec<T::Input>,
+    /// The underlying tokenizer which is responsible for turing
+    /// inputs into outputs.
+    tokenizer: T,
+    /// Meta-data which identifies token boundaries.  More
+    /// specifically, <code>true</code> indicates the corresponding
+    /// item (in the underlying sequence) is the start of a token.
+    starts: Vec<bool>
+}
+
+impl<T: Tokeniser> Tokenisation<T> {
+    /// Construct an incremental lexer from a tokenizer.  This
+    /// immediately tokenizes the stream and, hence, can fail with an
+    /// error (e.g. if an unknown sequence is encountered).
+    pub fn new(items: Vec<T::Input>, tokenizer: T) -> Result<Tokenisation<T>, T::Error> {
+        let mut starts = vec![false; items.len()];
+        // Perform the tokenisation
+        let mut i = 0;
+        while i < items.len() {
+            // Start of token
+            starts[i] = true;
+            // scan it
+            let t = tokenizer.scan(&items,i)?;
+            // Move on
+            i = t.end()+1;
+        }
+        // Done
+        Ok(Tokenisation{items,tokenizer,starts})
+    }
+}
