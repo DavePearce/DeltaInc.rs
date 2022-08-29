@@ -1,11 +1,10 @@
-use std::ops::Index;
 use delta_inc::lex::{Span,Tokeniser,Tokenisation};
 
 // ==================================================================
 // Token
 // ==================================================================
 
-#[derive(PartialEq)]
+#[derive(PartialEq,Debug)]
 pub enum TokenKind {
     LeftBrace,
     RightBrace,
@@ -13,7 +12,7 @@ pub enum TokenKind {
     Identifier
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq,Debug)]
 struct Token { kind: TokenKind, start: usize, end: usize }
 
 impl Token {
@@ -75,12 +74,16 @@ impl Tokeniser for CharTokeniser {
     type Error = ();
 
     fn scan(&self, items: &[char], i: usize) -> Result<Token,Self::Error> {
-        match items[i] {
-            '(' => Ok(Token::new(TokenKind::LeftBrace,i,i)),
-            ')' => Ok(Token::new(TokenKind::RightBrace,i,i)),
-            '0'..='9' => self.scan_number(items,i),
-            'a'..='z'|'A'..='Z'|'_' => self.scan_identifier(items,i),
-            _ => Err(())
+        if i >= items.len() {
+            Err(())
+        } else {
+            match items[i] {
+                '(' => Ok(Token::new(TokenKind::LeftBrace,i,i)),
+                ')' => Ok(Token::new(TokenKind::RightBrace,i,i)),
+                '0'..='9' => self.scan_number(items,i),
+                'a'..='z'|'A'..='Z'|'_' => self.scan_identifier(items,i),
+                _ => Err(())
+            }
         }
     }
 }
@@ -143,6 +146,33 @@ fn test_tokenizer_08() {
 
 #[test]
 fn test_lexer_01() {
-    let t = Tokenisation::new(vec!['a','b','1'],CharTokeniser());
-    //assert!(t.scan(&['*'],0).is_err());
+    let tizer = Tokenisation::new(vec!['a','b','1'],CharTokeniser());
+    assert!(tizer.is_ok());
+}
+
+#[test]
+fn test_lexer_02() {
+    let tizer = Tokenisation::new(vec!['a','b','*'],CharTokeniser());
+    assert!(tizer.is_err());
+}
+
+#[test]
+fn test_lexer_03() {
+    // Create iterator
+    let tizer = Tokenisation::new(vec!['1','a','b'],CharTokeniser()).unwrap();
+    let tokens : Vec<Token> = tizer.iter().collect();
+    assert!(tokens.len() == 2);
+    assert!(tokens[0] == Token::new(TokenKind::Number,0,0));
+    assert!(tokens[1] == Token::new(TokenKind::Identifier,1,2));
+}
+
+#[test]
+fn test_lexer_04() {
+    // Create iterator
+    let tizer = Tokenisation::new(vec!['1','a','b'],CharTokeniser()).unwrap();
+    for t in &tizer {
+        println!("GOT {:?}",t);
+    }
+    let tokens : Vec<Token> = tizer.iter().collect();
+    assert!(tokens.len() == 2);
 }

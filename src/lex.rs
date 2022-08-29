@@ -1,7 +1,4 @@
-use std::convert::From;
 use std::iter::Iterator;
-use crate::Transformable;
-use crate::seq::{Sequence};
 
 /// ==================================================================
 /// Span
@@ -34,7 +31,7 @@ pub trait Span {
 pub trait Tokeniser {
     /// The type of items in the underlying sequence.
     type Input;
-    /// The type of tokens produced by this tokenizer.
+    /// The type of tokens produced by this tokeniser.
     type Output:Span;
     /// Identifies the kind of error which can arise during
     /// tokenisation.
@@ -43,6 +40,46 @@ pub trait Tokeniser {
     /// sequence.
     fn scan(&self, seq: &[Self::Input], index: usize) -> Result<Self::Output,Self::Error>;
 }
+
+
+/// ==================================================================
+/// Token Iterator
+/// ==================================================================
+pub struct TokenIterator<'a, T : Tokeniser> {
+    /// Slice of items to tokenise
+    items: &'a [T::Input],
+    /// Current position within slice
+    index: usize,
+    /// Function responsible for tokenisation
+    tokeniser: &'a T
+}
+
+impl<'a,T:Tokeniser> TokenIterator<'a,T> {
+    pub fn new(items: &'a [T::Input], tokeniser: &'a T) -> TokenIterator<'a,T> {
+        TokenIterator{items,index:0,tokeniser}
+    }
+}
+
+impl<'a,T:Tokeniser> Iterator for TokenIterator<'a,T> {
+    type Item = T::Output;
+
+    /// Scan next token from the input sequence.
+    fn next(&mut self) -> Option<Self::Item> {
+        // Run the tokeniser.
+	match self.tokeniser.scan(self.items,self.index) {
+            Ok(t) => {
+                // Move iterator
+                self.index = t.end() + 1;
+                Some(t)
+            }
+            Err(_) => None
+        }
+    }
+}
+
+/// ==================================================================
+/// Tokenisation
+/// ==================================================================
 
 /// Represents the results of a _lexical analysis_ of a sequence of
 /// items (henceforth, the _underlying sequence_) to a sequence of
@@ -60,7 +97,7 @@ pub trait Tokeniser {
 /// alphabetic characters), _numbers_ (i.e. sequences of numeric
 /// characters) or _operators_ (e.g. braces).  Furthermore, not all
 /// characters map to tokens, and thus lexing can fail with an error.
-/// To manage incremental updates efficiently the tokenizer internally
+/// To manage incremental updates efficiently the tokeniser internally
 /// maintains meta-data which identifies token boundaries:
 ///
 /// ```text
@@ -77,23 +114,30 @@ pub trait Tokeniser {
 /// Here we see the starting boundaries of each token identified by
 /// `*` (which corresponds with `true`).
 pub struct Tokenisation<T : Tokeniser> {
-    /// The underlying sequence being (incrementally) tokenized by
+    /// The underlying sequence being (incrementally) tokenised by
     /// this lexer.
     items: Vec<T::Input>,
-    /// The underlying tokenizer which is responsible for turing
+    /// The underlying tokeniser which is responsible for turing
     /// inputs into outputs.
-    tokenizer: T,
+    tokeniser: T,
     /// Meta-data which identifies token boundaries.  More
     /// specifically, <code>true</code> indicates the corresponding
     /// item (in the underlying sequence) is the start of a token.
     starts: Vec<bool>
 }
 
+impl<T:Tokeniser> Tokenisation<T> {
+    /// Construct an iterator from this tokenisation.
+    pub fn iter(&self) -> TokenIterator<T> {
+        TokenIterator::new(&self.items,&self.tokeniser)
+    }
+}
+
 impl<T: Tokeniser> Tokenisation<T> {
-    /// Construct an incremental lexer from a tokenizer.  This
-    /// immediately tokenizes the stream and, hence, can fail with an
+    /// Construct an incremental lexer from a tokeniser.  This
+    /// immediately tokenises the stream and, hence, can fail with an
     /// error (e.g. if an unknown sequence is encountered).
-    pub fn new(items: Vec<T::Input>, tokenizer: T) -> Result<Tokenisation<T>, T::Error> {
+    pub fn new(items: Vec<T::Input>, tokeniser: T) -> Result<Tokenisation<T>, T::Error> {
         let mut starts = vec![false; items.len()];
         // Perform the tokenisation
         let mut i = 0;
@@ -101,11 +145,19 @@ impl<T: Tokeniser> Tokenisation<T> {
             // Start of token
             starts[i] = true;
             // scan it
-            let t = tokenizer.scan(&items,i)?;
+            let t = tokeniser.scan(&items,i)?;
             // Move on
             i = t.end()+1;
         }
         // Done
-        Ok(Tokenisation{items,tokenizer,starts})
+        Ok(Tokenisation{items,tokeniser,starts})
     }
+}
+
+/// Straightforward conversion from a `Tokenisation` to an `Iterator`.
+impl<'a,T:Tokeniser> IntoIterator for &'a Tokenisation<T> {
+    type Item = T::Output;
+    type IntoIter = TokenIterator<'a,T>;
+
+    fn into_iter(self) -> Self::IntoIter { self.iter() }
 }

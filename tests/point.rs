@@ -14,21 +14,21 @@ impl Point {
 /// `y`.  Thus, for a point `p={x:1,y:2}` and a delta `d={x:1,y:1}`,
 /// we would get a point `{x:2,y:3}` after applying `d` to `p`.
 impl Transformable for Point {
-    // The delta for a point is actually a point itself!    
+    // The delta for a point is actually a point itself!
     type Delta = Point;
 
     fn transform(&mut self,d: &Self::Delta) {
         self.x += d.x;
         self.y += d.y;
-    }    
+    }
 }
 
 impl Diffable for Point {
     type Delta = Point;
 
     fn diff(&self, other: &Self) -> Self::Delta {
-	let dx = self.x - other.x;
-	let dy = self.y - other.y;
+	let dx = other.x - self.x;
+	let dy = other.y - self.y;
 	Point{x:dx,y:dy}
     }
 }
@@ -44,7 +44,7 @@ impl Into<Sum> for Point {
 /// A simple example illustrating an incremental computation which
 /// reduces a point to its sum `(x+y)`.
 impl Incremental<Sum> for Point {
-    fn update(&self, to: &Sum, delta: &Self::Delta) -> <Sum as Transformer>::Delta {
+    fn update(&self, _: &Sum, delta: &Self::Delta) -> <Sum as Transformer>::Delta {
         // In this case, we can calculate the Sum delta purely from
         // the Sum delta.
         delta.x + delta.y
@@ -62,7 +62,7 @@ impl Transformer for Sum {
 
     fn transform_into(&self,d: &Self::Delta) -> Self {
         Sum(self.0 + d)
-    }    
+    }
 }
 
 // ===============================================================
@@ -83,11 +83,12 @@ fn test_transformable_01() {
     assert_eq!(p,Point{x:2,y:3});
 }
 
+#[test]
 fn test_diff_01() {
     let p1 = Point::new(1,2);
     let p2 = Point::new(4,6);
     let d1 = p1.diff(&p2);
-    let d2 = p2.diff(&p2);
+    let d2 = p2.diff(&p1);
     //
     assert_eq!(d1,Point::new(3,4));
     assert_eq!(d2,Point::new(-3,-4));

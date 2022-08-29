@@ -10,7 +10,7 @@ fn test_replace_01() {
     // Check unit replacement.
     let mut v1 = vec![0,2,3];
     // Construct delta
-    let mut d = vec::replace(0..1,vec![1]);
+    let d = vec::replace(0..1,vec![1]);
     // Apply delta
     v1.transform(&d);
     // Check outcome!
@@ -22,7 +22,7 @@ fn test_replace_02() {
     // Check multi-replacement
     let mut v1 = vec![1,2,3];
     // Construct delta
-    let mut d = vec::replace(0..2,vec![1,0]);
+    let d = vec::replace(0..2,vec![1,0]);
     // Apply delta
     v1.transform(&d);
     // Check outcome!
@@ -34,7 +34,7 @@ fn test_replace_03() {
     // Check negative sized replacement
     let mut v1 = vec![1,2,3];
     // Construct delta
-    let mut d = vec::replace(0..2,vec![0]);
+    let d = vec::replace(0..2,vec![0]);
     // Apply delta
     v1.transform(&d);
     // Check outcome!
@@ -64,7 +64,7 @@ fn test_insert_01() {
     // Check insertion.
     let mut v1 = vec![1,2,3];
     // Construct delta
-    let mut d = vec::insert(0,vec![0]);
+    let d = vec::insert(0,vec![0]);
     // Apply delta
     v1.transform(&d);
     // Check outcome!
@@ -80,7 +80,7 @@ fn test_remove_01() {
     // Check negative sized replacement
     let mut v1 = vec![1,2,3];
     // Construct delta
-    let mut d = vec::remove(0..2);
+    let d = vec::remove(0..2);
     // Apply delta
     v1.transform(&d);
     // Check outcome!
