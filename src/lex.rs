@@ -176,6 +176,30 @@ impl<T: Tokeniser> Tokenisation<T> {
         // Done
         Ok(starts)
     }
+
+    /// Incrementally update a region of the underlying meta-data.
+    /// Consider the example of sequences of alphabetic characters
+    /// tokenised as identifies, and terminated by `;` (or EOF):
+    ///
+    /// ```text
+    ///          0 1 3 4       0 1 2 3 4
+    ///         +-+-+-+-+     +-+-+-+-+-+
+    /// bytes:  |a|b|;|d| ==> |a|b|;|c|d|
+    ///         +-+-+-+-+     +-+-+-+-+-+
+    ///          |     |
+    ///          |     |
+    ///         +-+-+-+-+     +-+-+-+-+-+
+    /// starts: |*| | |*| ==> |*| | |?|?|
+    ///         +-+-+-+-+     +-+-+-+-+-+
+    /// ```
+    /// In the above, '3' is inserted before '4' and we must update
+    /// `starts`.  To do this, we have to rewind to the last known
+    /// starting point and the tokenise forwards from there.  We must
+    /// tokenise all the way through the affected region, and then
+    /// continue until the start boundarise line up.
+    fn update(&mut self, start: usize, end: usize) -> Result<(),T::Error> {
+
+    }
 }
 
 /// Straightforward conversion from a `Tokenisation` to an `Iterator`.
