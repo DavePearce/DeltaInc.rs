@@ -193,7 +193,7 @@ impl<'a,T:Tokeniser> IntoIterator for &'a Tokenisation<T> {
 /// Allow a tokenisation to be incrementally updated through a
 /// _transformation_ on the underlying sequence.
 impl<T:Tokeniser> PartiallyTransformable for Tokenisation<T>
-where T::Input: Clone + Default {
+where T::Input: Clone {
     /// A tokenisation delta corresponds to a delta on the underlying
     /// input sequence.  They key is that applying this delta to the
     /// tokenisation requires that it _incrementally updates_ the
