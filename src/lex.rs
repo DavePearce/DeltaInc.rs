@@ -206,6 +206,14 @@ where T::Input: Clone {
     fn transform(&mut self,d: &Self::Delta) -> Result<(),Self::Error> {
         // Transform the underlying items.
         self.items.transform(d);
+        // Construct starts delta
+        // FIXME: this is not efficient.
+        let rws : Vec<vec::Rewrite<bool>> = d.iter().map(|r| r.map(|i| false)).collect();
+        let sd : vec::Delta<bool> = vec::Delta::from(rws);
+        // Apply starts delta
+        self.starts.transform(&sd);
+        // Sanity check.
+        assert!(self.starts.len() == self.items.len());
         // Transform starts
         self.starts = Self::generate_starts(&self.items,&self.tokeniser)?;
         // All good!
