@@ -2,7 +2,7 @@ use std::cmp::{PartialOrd,Ordering};
 use std::convert::From;
 use std::ops::Range;
 
-#[derive(PartialEq,Debug)]
+#[derive(Copy,Clone,Debug,PartialEq)]
 pub struct Region {
     /// Starting point in source hunk of this rewrite.
     pub offset: usize,

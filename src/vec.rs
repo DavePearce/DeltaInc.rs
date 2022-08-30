@@ -9,7 +9,8 @@ use crate::region::Region;
 
 /// An atomic action applied to a `Vec<T>`, such as replace one region
 /// by another or inserting one or more items, etc.
-struct Rewrite<T> {
+#[derive(Clone)]
+pub struct Rewrite<T> {
     /// Portion of `Vec<T>` being replaced.
     region: Region,
     /// Data being used for replacement
@@ -19,6 +20,15 @@ struct Rewrite<T> {
 impl<T> Rewrite<T> {
     pub fn new(region: Region, data: Vec<T>) -> Self {
 	Rewrite{region,data: data}
+    }
+
+    /// Map this rewrite to another rewrite of a different type.  This
+    /// is useful when applying rewrites to structures which include
+    /// meta-data.
+    pub fn map<S,F>(&self, func: F) -> Rewrite<S>
+    where F:FnMut(&T)->S {
+        let data : Vec<S> = self.data.iter().map(func).collect();
+        Rewrite{region:self.region,data}
     }
 }
 
@@ -36,6 +46,26 @@ pub struct Delta<T> {
 impl<T> Delta<T> {
     pub fn and_replace(&mut self, range: Range<usize>, data: Vec<T>) {
     	self.rewrites.push(Rewrite::new(range.into(),data));
+    }
+
+    /// Construct an iterator over the rewrites contained within this
+    /// delta.
+    pub fn iter(&self) -> std::slice::Iter<Rewrite<T>> {
+        self.rewrites.iter()
+    }
+}
+
+/// Construct a Delta from a slice of rewrites.
+impl<T:Clone> From<&[Rewrite<T>]> for Delta<T> {
+    fn from(rewrites: &[Rewrite<T>]) -> Delta<T> {
+        Delta{rewrites: rewrites.to_vec()}
+    }
+}
+
+/// Construct a Delta from a vector of rewrites.
+impl<T> From<Vec<Rewrite<T>>> for Delta<T> {
+    fn from(rewrites: Vec<Rewrite<T>>) -> Delta<T> {
+        Delta{rewrites}
     }
 }
 
