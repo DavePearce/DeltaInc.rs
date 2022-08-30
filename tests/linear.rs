@@ -1,4 +1,4 @@
-use delta_inc::linear::{Span};
+use delta_inc::linear::{Linear,Span};
 
 /// A simple lineriser which divides sequences based on some specific
 /// item.
@@ -57,8 +57,12 @@ impl<'a,T:PartialEq> Iterator for Splitter<'a,T> {
     }
 }
 
+// =========================================================
+// Splitter
+// =========================================================
+
 #[test]
-fn test_lineariser_01() {
+fn test_splitter_01() {
     let s = Splitter::new(&[1,2,3],0);
     let v : Vec<Span<&[usize]>> = s.collect();
     assert!(v.len() == 1);
@@ -67,7 +71,7 @@ fn test_lineariser_01() {
 }
 
 #[test]
-fn test_lineariser_02() {
+fn test_splitter_02() {
     let s = Splitter::new(&[1,2,0,3],0);
     let v : Vec<Span<&[usize]>> = s.collect();
     assert!(v.len() == 2);
@@ -75,4 +79,29 @@ fn test_lineariser_02() {
     assert_eq!(v[0].item,&[1,2]);
     assert_eq!(v[1].region,3..4);
     assert_eq!(v[1].item,&[3]);
+}
+
+#[test]
+fn test_splitter_03() {
+    let s = Splitter::new(&[1,2,0,0,3],0);
+    let v : Vec<Span<&[usize]>> = s.collect();
+    assert!(v.len() == 3);
+    assert_eq!(v[0].region,0..2);
+    assert_eq!(v[0].item,&[1,2]);
+    assert_eq!(v[1].item,&[]);
+    assert_eq!(v[2].region,4..5);
+    assert_eq!(v[2].item,&[3]);
+}
+
+// =========================================================
+// Linear
+// =========================================================
+
+#[test]
+fn test_lineariser_01() {
+    let s = Splitter::new(&[1,2,3],0);
+    let l = Linear::from(s);
+    for i in 0..l.len() {
+        assert_eq!(l[i],&[1,2,3]);
+    }
 }
