@@ -1,4 +1,6 @@
 use std::iter::Iterator;
+use crate::vec;
+use crate::{PartiallyTransformable,Transformable};
 
 /// ==================================================================
 /// Span
@@ -138,7 +140,29 @@ impl<T: Tokeniser> Tokenisation<T> {
     /// immediately tokenises the stream and, hence, can fail with an
     /// error (e.g. if an unknown sequence is encountered).
     pub fn new(items: Vec<T::Input>, tokeniser: T) -> Result<Tokenisation<T>, T::Error> {
-        let mut starts = vec![false; items.len()];
+        // Construct meta-data from scratch.
+        let mut starts = Self::generate_starts(&items,&tokeniser)?;
+        // Done
+        Ok(Tokenisation{items,tokeniser,starts})
+    }
+
+    /// Validate that the meta-data is up-to-date with the underlying
+    /// sequence.  This is, in essence, a safety check which can be
+    /// run after a transformation has been applied to check
+    /// everything still makes sense.
+    pub fn validate(&self) -> Result<(),T::Error> {
+        // Regenerate meta-data from scratch.
+        let nstarts = Self::generate_starts(&self.items,&self.tokeniser)?;
+        // Check it is the same.
+        assert!(nstarts == self.starts);
+        //
+        Ok(())
+    }
+
+    /// Generate meta-data (i.e. `starts`) for this tokeniser from
+    /// scratch.
+    fn generate_starts(items: &Vec<T::Input>, tokeniser: &T) -> Result<Vec<bool>, T::Error> {
+        let mut starts = std::vec![false; items.len()];
         // Perform the tokenisation
         let mut i = 0;
         while i < items.len() {
@@ -150,7 +174,7 @@ impl<T: Tokeniser> Tokenisation<T> {
             i = t.end()+1;
         }
         // Done
-        Ok(Tokenisation{items,tokeniser,starts})
+        Ok(starts)
     }
 }
 
@@ -160,4 +184,31 @@ impl<'a,T:Tokeniser> IntoIterator for &'a Tokenisation<T> {
     type IntoIter = TokenIterator<'a,T>;
 
     fn into_iter(self) -> Self::IntoIter { self.iter() }
+}
+
+/// ==================================================================
+/// Transformable
+/// ==================================================================
+
+/// Allow a tokenisation to be incrementally updated through a
+/// _transformation_ on the underlying sequence.
+impl<T:Tokeniser> PartiallyTransformable for Tokenisation<T>
+where T::Input: Clone + Default {
+    /// A tokenisation delta corresponds to a delta on the underlying
+    /// input sequence.  They key is that applying this delta to the
+    /// tokenisation requires that it _incrementally updates_ the
+    /// associated meta-data.
+    type Delta = vec::Delta<T::Input>;
+    /// Define the type of errors which can arise from an invalid
+    /// transformation.
+    type Error = T::Error;
+    /// Transform a tokenisation in place.
+    fn transform(&mut self,d: &Self::Delta) -> Result<(),Self::Error> {
+        // Transform the underlying items.
+        self.items.transform(d);
+        // Transform starts
+        self.starts = Self::generate_starts(&self.items,&self.tokeniser)?;
+        // All good!
+        Ok(())
+    }
 }

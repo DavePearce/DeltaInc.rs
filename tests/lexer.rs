@@ -1,10 +1,12 @@
+use delta_inc::{PartiallyTransformable};
 use delta_inc::lex::{Span,Tokeniser,Tokenisation};
+use delta_inc::vec;
 
 // ==================================================================
 // Token
 // ==================================================================
 
-#[derive(PartialEq,Debug)]
+#[derive(Copy,Clone,Debug,PartialEq)]
 pub enum TokenKind {
     LeftBrace,
     RightBrace,
@@ -12,7 +14,7 @@ pub enum TokenKind {
     Identifier
 }
 
-#[derive(PartialEq,Debug)]
+#[derive(Copy,Clone,Debug,PartialEq)]
 struct Token { kind: TokenKind, start: usize, end: usize }
 
 impl Token {
@@ -146,33 +148,88 @@ fn test_tokenizer_08() {
 
 #[test]
 fn test_lexer_01() {
-    let tizer = Tokenisation::new(vec!['a','b','1'],CharTokeniser());
-    assert!(tizer.is_ok());
+    let tokens = scan(&['a','b','1']);
+    //
+    assert!(tokens.len() == 1);
+    assert!(tokens[0] == Token::new(TokenKind::Identifier,0,2));
 }
 
 #[test]
 fn test_lexer_02() {
-    let tizer = Tokenisation::new(vec!['a','b','*'],CharTokeniser());
-    assert!(tizer.is_err());
+    scan_invalid(&['a','b','*']);
 }
 
 #[test]
 fn test_lexer_03() {
-    // Create iterator
-    let tizer = Tokenisation::new(vec!['1','a','b'],CharTokeniser()).unwrap();
-    let tokens : Vec<Token> = tizer.iter().collect();
+    let tokens = scan(&['1','a','b']);
+    //
     assert!(tokens.len() == 2);
     assert!(tokens[0] == Token::new(TokenKind::Number,0,0));
     assert!(tokens[1] == Token::new(TokenKind::Identifier,1,2));
 }
 
+// ============================================================================
+// Test (Transformable)
+// ============================================================================
+
 #[test]
-fn test_lexer_04() {
-    // Create iterator
-    let tizer = Tokenisation::new(vec!['1','a','b'],CharTokeniser()).unwrap();
-    for t in &tizer {
-        println!("GOT {:?}",t);
-    }
-    let tokens : Vec<Token> = tizer.iter().collect();
-    assert!(tokens.len() == 2);
+fn test_transform_01() {
+    let delta = vec::insert(0,vec!['1']);
+    let tokens = apply(&['a','b'], &delta);
+    //
+    assert!(tokens == scan(&['1','a','b']));
+}
+
+#[test]
+fn test_transform_02() {
+    let delta = vec::insert(0,vec!['*']);
+    apply_invalid(&['a','b'], &delta);
+}
+
+// ============================================================================
+// Helpers
+// ============================================================================
+
+/// Tokenise a (valid) character stream which should, therefore,
+/// produce a valid sequence of tokens.
+fn scan(input: &[char]) -> Vec<Token> {
+    // Construct tokenisation.
+    let tizer = Tokenisation::new(input.to_vec(),CharTokeniser()).unwrap();
+    // Fold result into vector.
+    tizer.iter().collect()
+}
+
+/// Tokenise an invalid character stream which should, therefore,
+/// raise an error.
+fn scan_invalid(input: &[char]) {
+    // Construct tokenisation.
+    let tizer = Tokenisation::new(input.to_vec(),CharTokeniser());
+    // Check this is an error
+    assert!(tizer.is_err());
+}
+
+/// Tokenise a (valid) character stream, then apply a (valid) delta to
+/// it.  This should, therefore, produce a valid sequence of tokens.
+fn apply(input: &[char], delta: &vec::Delta<char>) -> Vec<Token> {
+    // Construct tokenisation (assuming its valid).
+    let mut tizer = Tokenisation::new(input.to_vec(),CharTokeniser()).unwrap();
+    // Apply delta transformation
+    let r = tizer.transform(delta);
+    // Sanity check result applied
+    assert!(r.is_ok());
+    // Sanity check
+    assert!(tizer.validate().is_ok());
+    // Fold result into vector.
+    tizer.iter().collect()
+}
+
+/// Tokenise a (valid) character stream, then apply an invalid delta
+/// to it.  This, therefore, should produce an error.
+fn apply_invalid(input: &[char], delta: &vec::Delta<char>) {
+    // Construct tokenisation (assuming its valid).
+    let mut tizer = Tokenisation::new(input.to_vec(),CharTokeniser()).unwrap();
+    // Apply delta transformation
+    let r = tizer.transform(delta);
+    // Sanity check result applied incorrectly
+    assert!(r.is_err());
 }
