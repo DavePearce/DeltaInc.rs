@@ -20,7 +20,7 @@ impl Region {
 }
 
 impl PartialOrd for Region {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+    fn partial_cmp(&self, _other: &Self) -> Option<Ordering> {
 	unimplemented!("TODO")
     }
 
