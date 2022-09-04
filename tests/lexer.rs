@@ -1,92 +1,136 @@
 use delta_inc::{PartiallyTransformable};
-use delta_inc::lex::{Span,Tokeniser,Tokenisation};
-use delta_inc::vec;
+use delta_inc::lex;
+use delta_inc::lex::{SnapResult,Scanner,Span,TableTokenizer};
 
-// ==================================================================
+// =================================================================
 // Token
-// ==================================================================
-
-#[derive(Copy,Clone,Debug,PartialEq)]
-pub enum TokenKind {
+// =================================================================
+#[derive(Clone,Copy,Debug,PartialEq)]
+pub enum Token {
+    EOF,
+    Identifier,
     LeftBrace,
-    RightBrace,
     Number,
-    Identifier
+    RightBrace
 }
 
-#[derive(Copy,Clone,Debug,PartialEq)]
-struct Token { kind: TokenKind, start: usize, end: usize }
+// ======================================================
+// Rules
+// ======================================================
 
-impl Token {
-    pub fn new(kind: TokenKind, start: usize, end: usize) -> Self {
-        Token{kind,start,end}
+/// Handy type alias for the result type used for all of the lexical
+/// rules.
+type Result = std::result::Result<Span<Token>,()>;
+
+/// Scan a numeric literal.
+fn scan_number(input: &[char]) -> Result {
+    scan_whilst(input, Token::Number, |c| c.is_digit(10))
+}
+
+/// Scan an identifier which starts with an alpabetic character, or an
+/// underscore and subsequently contains zero or more alpha-number
+/// characters or underscores.
+fn scan_identifier(input: &[char]) -> Result {
+    if input.len() > 0 && is_identifier_start(input[0]) {
+        scan_whilst(input, Token::Identifier, is_identifier_middle)
+    } else {
+        Err(())
     }
 }
 
-impl Span for Token {
-    fn start(&self) -> usize { self.start }
-    fn end(&self) -> usize { self.end }
-}
-
-// ==================================================================
-// Char Tokeniser
-// ==================================================================
-
-struct CharTokeniser();
-
-impl CharTokeniser {
-    /// Scan a sequence of one or more digits starting at a given
-    /// position in the underlying sequence.
-    fn scan_number(&self, items: &[char], index: usize) -> Result<Token,()> {
-        let mut i = index + 1;
-        // Scan all digits.
-        while i < items.len() && items[i].is_digit(10) { i = i + 1; }
-        // Done
-        Ok(Token::new(TokenKind::Number,index,i-1))
-    }
-
-    /// Scan an identifier which has the form
-    /// `(a-zA-Z_)[a-zA-Z0-9_]*`.  That is, its a sequence beginning
-    /// with an alphabetic character or an underscore, followed a
-    /// sequence of zero or more characters which are either
-    /// alphabetic, numeric or an underscore.
-    fn scan_identifier(&self, items: &[char], index: usize) -> Result<Token,()> {
-        let mut i = index + 1;
-        // Scan all digits.
-        while i < items.len() && Self::is_identifier_middle(items[i]) {
-            i = i + 1;
-        }
-        // Done
-        Ok(Token::new(TokenKind::Identifier,index,i-1))
-    }
-
-    /// Determine whether a given character can occur in the middle of an
-    /// identifier
-    fn is_identifier_middle(c: char) -> bool {
-        c.is_digit(10) || c.is_ascii_alphabetic() || c == '_'
+/// Scan all single-character operators.
+fn scan_brace_operators(input: &[char]) -> Result {
+    if input.len() == 0 {
+        Err(())
+    } else {
+        let t = match input[0] {
+            '(' => Token::LeftBrace,
+            ')' => Token::RightBrace,
+            _ => { return Err(()); }
+        };
+        //
+        Ok(Span::new(t,0..1))
     }
 }
 
-impl Tokeniser for CharTokeniser {
-    /// Define input type for this tokenizer
-    type Input = char;
-    /// Define output type for this tokenizer
-    type Output = Token;
-    /// Define error type for this tokenizer
-    type Error = ();
+/// Determine whether a given character is the start of an identifier.
+fn is_identifier_start(c: char) -> bool {
+    c.is_ascii_alphabetic() || c == '_'
+}
 
-    fn scan(&self, items: &[char], i: usize) -> Result<Token,Self::Error> {
-        if i >= items.len() {
-            Err(())
-        } else {
-            match items[i] {
-                '(' => Ok(Token::new(TokenKind::LeftBrace,i,i)),
-                ')' => Ok(Token::new(TokenKind::RightBrace,i,i)),
-                '0'..='9' => self.scan_number(items,i),
-                'a'..='z'|'A'..='Z'|'_' => self.scan_identifier(items,i),
-                _ => Err(())
-            }
-        }
+/// Determine whether a given character can occur in the middle of an
+/// identifier
+fn is_identifier_middle(c: char) -> bool {
+    c.is_digit(10) || is_identifier_start(c)
+}
+
+/// If there is nothing left to scan, then we've reached the
+/// End-Of-File.
+fn scan_eof(input: &[char]) -> Result {
+    if input.len() == 0 {
+        Ok(Span::new(Token::EOF,0..0))
+    } else {
+        Err(())
+    }
+}
+
+/// Helper which scans an item matching a given predicate.  If no
+/// characters match, then it fails.
+fn scan_whilst<P>(input: &[char], t: Token, pred: P) -> Result
+where P: Fn(char) -> bool {
+    let mut i = 0;
+    // Continue whilst predicate matches
+    while i < input.len() && pred(input[i]) { i = i + 1; }
+    // Check what happened
+    if i == 0 {
+        // Nothing matched
+        Err(())
+    } else {
+        // Something matched
+        Ok(Span::new(t, 0..i))
+    }
+}
+
+/// The set of rules used for lexing.
+static RULES : &'static [Scanner<char,Token>] = &[
+    scan_brace_operators,
+    scan_identifier,
+    scan_number,
+    scan_eof
+];
+
+// ======================================================
+// Lexer
+// ======================================================
+
+pub struct Lexer {
+    /// Internal lexer used for the heavy lifting.
+    lexer: lex::Lexer<TableTokenizer<char,Token>>
+}
+
+impl Lexer {
+    /// Construct a `Lexer` from a given string slice.
+    pub fn new(input: &str) -> Lexer {
+        let tokenizer = TableTokenizer::new(RULES.to_vec());
+        let chars = input.chars().collect();
+        Lexer{lexer:lex::Lexer::new(chars, tokenizer)}
+    }
+
+    pub fn get(&self, t: Span<Token>) -> &[char] {
+        self.lexer.get(t)
+    }
+
+    /// Pass through request to underlying lexer
+    pub fn is_eof(&self) -> bool { self.lexer.is_eof() }
+    /// Pass through request to underlying lexer
+    pub fn peek(&self) -> Span<Token> { self.lexer.peek() }
+    /// Pass through request to underlying lexer
+    pub fn snap(&mut self, kind : Token) -> SnapResult<Token> {
+        self.lexer.snap(kind)
+    }
+    /// Pass through request to underlying lexer
+    pub fn snap_any(&mut self, kinds : &[Token]) -> SnapResult<Token> {
+        self.lexer.snap_any(kinds)
     }
 }
 
@@ -94,142 +138,39 @@ impl Tokeniser for CharTokeniser {
 // Test (Tokeniser)
 // ============================================================================
 
+
+/// Handy definition
+macro_rules! assert_ok {
+    ($result:expr) => { assert!($result.is_ok()); };
+}
+
 #[test]
 fn test_tokenizer_01() {
-    let t = CharTokeniser();
-    assert!(t.scan(&['*'],0).is_err());
+    let mut l = Lexer::new("()");
+    assert_ok!(l.snap(Token::LeftBrace));
+    assert_ok!(l.snap(Token::RightBrace));
+    assert_ok!(l.snap(Token::EOF));
 }
 
 #[test]
 fn test_tokenizer_02() {
-    let token = CharTokeniser().scan(&['('],0).unwrap();
-    assert!(token == Token::new(TokenKind::LeftBrace,0,0));
+    let mut l = Lexer::new("01");
+    assert_ok!(l.snap(Token::Number));
+    assert_ok!(l.snap(Token::EOF));
 }
 
 #[test]
 fn test_tokenizer_03() {
-    let token = CharTokeniser().scan(&['a',')'],1).unwrap();
-    assert!(token == Token::new(TokenKind::RightBrace,1,1));
+    let mut l = Lexer::new("abc");
+    assert_ok!(l.snap(Token::Identifier));
+    assert_ok!(l.snap(Token::EOF));
 }
 
 #[test]
 fn test_tokenizer_04() {
-    let token = CharTokeniser().scan(&['0','1'],0).unwrap();
-    assert!(token == Token::new(TokenKind::Number,0,1));
-}
-
-#[test]
-fn test_tokenizer_05() {
-    let token = CharTokeniser().scan(&['0','1','a'],0).unwrap();
-    assert!(token == Token::new(TokenKind::Number,0,1));
-}
-
-#[test]
-fn test_tokenizer_06() {
-    let token = CharTokeniser().scan(&['a'],0).unwrap();
-    assert!(token == Token::new(TokenKind::Identifier,0,0));
-}
-
-#[test]
-fn test_tokenizer_07() {
-    let token = CharTokeniser().scan(&['a','b','c'],0).unwrap();
-    assert!(token == Token::new(TokenKind::Identifier,0,2));
-}
-
-#[test]
-fn test_tokenizer_08() {
-    let token = CharTokeniser().scan(&['_','b','c'],0).unwrap();
-    assert!(token == Token::new(TokenKind::Identifier,0,2));
-}
-
-// ============================================================================
-// Test (Lexer)
-// ============================================================================
-
-#[test]
-fn test_lexer_01() {
-    let tokens = scan(&['a','b','1']);
-    //
-    assert!(tokens.len() == 1);
-    assert!(tokens[0] == Token::new(TokenKind::Identifier,0,2));
-}
-
-#[test]
-fn test_lexer_02() {
-    scan_invalid(&['a','b','*']);
-}
-
-#[test]
-fn test_lexer_03() {
-    let tokens = scan(&['1','a','b']);
-    //
-    assert!(tokens.len() == 2);
-    assert!(tokens[0] == Token::new(TokenKind::Number,0,0));
-    assert!(tokens[1] == Token::new(TokenKind::Identifier,1,2));
-}
-
-// ============================================================================
-// Test (Transformable)
-// ============================================================================
-
-#[test]
-fn test_transform_01() {
-    let delta = vec::insert(0,vec!['1']);
-    let tokens = apply(&['a','b'], &delta);
-    //
-    assert!(tokens == scan(&['1','a','b']));
-}
-
-#[test]
-fn test_transform_02() {
-    let delta = vec::insert(0,vec!['*']);
-    apply_invalid(&['a','b'], &delta);
-}
-
-// ============================================================================
-// Helpers
-// ============================================================================
-
-/// Tokenise a (valid) character stream which should, therefore,
-/// produce a valid sequence of tokens.
-fn scan(input: &[char]) -> Vec<Token> {
-    // Construct tokenisation.
-    let tizer = Tokenisation::new(input.to_vec(),CharTokeniser()).unwrap();
-    // Fold result into vector.
-    tizer.iter().collect()
-}
-
-/// Tokenise an invalid character stream which should, therefore,
-/// raise an error.
-fn scan_invalid(input: &[char]) {
-    // Construct tokenisation.
-    let tizer = Tokenisation::new(input.to_vec(),CharTokeniser());
-    // Check this is an error
-    assert!(tizer.is_err());
-}
-
-/// Tokenise a (valid) character stream, then apply a (valid) delta to
-/// it.  This should, therefore, produce a valid sequence of tokens.
-fn apply(input: &[char], delta: &vec::Delta<char>) -> Vec<Token> {
-    // Construct tokenisation (assuming its valid).
-    let mut tizer = Tokenisation::new(input.to_vec(),CharTokeniser()).unwrap();
-    // Apply delta transformation
-    let r = tizer.transform(delta);
-    // Sanity check result applied
-    assert!(r.is_ok());
-    // Sanity check
-    assert!(tizer.validate().is_ok());
-    // Fold result into vector.
-    tizer.iter().collect()
-}
-
-/// Tokenise a (valid) character stream, then apply an invalid delta
-/// to it.  This, therefore, should produce an error.
-fn apply_invalid(input: &[char], delta: &vec::Delta<char>) {
-    // Construct tokenisation (assuming its valid).
-    let mut tizer = Tokenisation::new(input.to_vec(),CharTokeniser()).unwrap();
-    // Apply delta transformation
-    let r = tizer.transform(delta);
-    // Sanity check result applied incorrectly
-    assert!(r.is_err());
+    let mut l = Lexer::new("0123(abc");
+    assert_ok!(l.snap(Token::Number));
+    assert_ok!(l.snap(Token::LeftBrace));
+    assert_ok!(l.snap(Token::Identifier));
+    assert_ok!(l.snap(Token::EOF));
 }
