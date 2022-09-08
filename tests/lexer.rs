@@ -1,6 +1,6 @@
 use delta_inc::{PartiallyTransformable};
 use delta_inc::lex;
-use delta_inc::lex::{SnapResult,Scanner,Span,TableTokenizer};
+use delta_inc::lex::{Scanner,Span,TableTokenizer};
 
 // =================================================================
 // Token
@@ -125,11 +125,11 @@ impl Lexer {
     /// Pass through request to underlying lexer
     pub fn peek(&self) -> Span<Token> { self.lexer.peek() }
     /// Pass through request to underlying lexer
-    pub fn snap(&mut self, kind : Token) -> SnapResult<Token> {
+    pub fn snap(&mut self, kind : Token) -> lex::Result<Token> {
         self.lexer.snap(kind)
     }
     /// Pass through request to underlying lexer
-    pub fn snap_any(&mut self, kinds : &[Token]) -> SnapResult<Token> {
+    pub fn snap_any(&mut self, kinds : &[Token]) -> lex::Result<Token> {
         self.lexer.snap_any(kinds)
     }
 }

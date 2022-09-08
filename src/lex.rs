@@ -7,7 +7,7 @@ use std::ops::Range;
 /// Indicates that a particular kind of token was expected, but that
 /// we actually found something else.
 #[derive(Debug)]
-pub enum SnapError<T>
+pub enum Error<T>
 where T:Clone+Copy+PartialEq {
     // Expected type T, but found this token.
     Expected(T,Span<T>),
@@ -16,7 +16,7 @@ where T:Clone+Copy+PartialEq {
 }
 
 /// The type of error which can be returned from `snap()`.
-pub type SnapResult<T> = Result<Span<T>,SnapError<T>>;
+pub type Result<T> = std::result::Result<Span<T>,Error<T>>;
 
 // =================================================================
 // Region
@@ -171,7 +171,7 @@ impl<T:Tokenizer> Lexer<T> {
     /// Match a given token type in the current stream.  If the kind
     /// matches, then the token stream advances.  Otherwise, it
     /// remains at the same position and an error is returned.
-    pub fn snap(&mut self, kind : T::Token) -> SnapResult<T::Token> {
+    pub fn snap(&mut self, kind : T::Token) -> Result<T::Token> {
 	// Peek at the next token
 	let lookahead = self.peek();
 	// Check it!
@@ -182,7 +182,7 @@ impl<T:Tokenizer> Lexer<T> {
 	    Ok(lookahead)
 	} else {
 	    // Reject
-	    Err(SnapError::Expected(kind,lookahead))
+	    Err(Error::Expected(kind,lookahead))
 	}
     }
 
@@ -190,7 +190,7 @@ impl<T:Tokenizer> Lexer<T> {
     /// candidates.  If one of the candidates matches, then the token
     /// stream advances.  Otherwise, it remains at the same position
     /// and an error is returned.
-    pub fn snap_any(&mut self, kinds: &[T::Token]) -> SnapResult<T::Token> {
+    pub fn snap_any(&mut self, kinds: &[T::Token]) -> Result<T::Token> {
         for k in kinds {
             match self.snap(*k) {
                 Ok(tok) => { return Ok(tok); }
@@ -198,7 +198,7 @@ impl<T:Tokenizer> Lexer<T> {
             }
         }
         // Reject
-	Err(SnapError::ExpectedIn(kinds.to_vec(),self.peek()))
+	Err(Error::ExpectedIn(kinds.to_vec(),self.peek()))
     }
 
     /// Begin process of scanning a token based on its first
@@ -220,7 +220,7 @@ impl<T:Tokenizer> Lexer<T> {
 
 /// Defines a very simple concept of a scanner which requires no
 /// state.  Tokenizers can be built out of scanners, for example.
-pub type Scanner<S,T> = fn(&[S])->Result<Span<T>,()>;
+pub type Scanner<S,T> = fn(&[S])->std::result::Result<Span<T>,()>;
 
 /// A tokenizer construct from one or more tokenizers which are tried
 /// in order of appearance.
