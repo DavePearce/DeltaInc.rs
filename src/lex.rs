@@ -144,6 +144,14 @@ impl<T:Tokenizer> Lexer<T> {
         return Self { input, offset: 0, tokeniser }
     }
 
+    /// Determine the current lexing position
+    pub fn offset(&self) -> usize { self.offset }
+
+    /// Reset the lexing position to a given (known) offset.
+    pub fn reset(&mut self, offset: usize) {
+        self.offset = offset;
+    }
+
     /// Check whether the lexer has reached the end of the file or
     /// not.
     pub fn is_eof(&self) -> bool {
