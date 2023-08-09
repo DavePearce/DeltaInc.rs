@@ -1,7 +1,7 @@
-/// Provides default implementations of the `Transformable` trait.
+/// Provides default implementations of the `Transform` trait.
 use std::ops::Range;
-use crate::{Transformable};
-use crate::region::Region;
+use crate::diff::Transform;
+use crate::util::Region;
 
 // ===================================================================
 // Rewrite
@@ -91,10 +91,10 @@ pub fn remove<T>(range: Range<usize>) -> Delta<T> {
 }
 
 // ===================================================================
-// Transformable
+// Transform
 // ===================================================================
 
-impl<T:std::clone::Clone> Transformable for Vec<T> {
+impl<T:std::clone::Clone> Transform for Vec<T> {
     type Delta = Delta<T>;
 
     fn transform(&mut self,d: &Self::Delta) {
