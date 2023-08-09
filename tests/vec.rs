@@ -1,5 +1,5 @@
-use delta_inc::Transformable;
-use delta_inc::vec;
+use delta_inc::diff::Transform;
+use delta_inc::diff::vec;
 
 // ===============================================================
 // Replace
