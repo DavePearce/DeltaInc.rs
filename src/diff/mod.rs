@@ -1,6 +1,11 @@
-pub mod vec;
+pub mod slice;
+mod rewrite;
+mod vec_delta;
 
 use std::result::Result;
+
+pub use rewrite::*;
+pub use vec_delta::*;
 
 // ===================================================================
 // Diff
