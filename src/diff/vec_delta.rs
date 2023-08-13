@@ -3,8 +3,8 @@ use crate::util::Region;
 use super::{SliceRewrite};
 
 /// A `VecDelta` is a sequence of zero (or more) rewrites that can be
-/// generated from something resembling a sequence (e.g. a slice or a
-/// `Vec`) a applied to a `Vec` to generate another `Vec`. Consider
+/// generated from something resembling a sequence (e.g. a slice or
+/// `Vec`) and applied to a `Vec` to generate another `Vec`. Consider
 /// the following:
 ///
 /// ```txt
@@ -22,11 +22,13 @@ use super::{SliceRewrite};
 ///  0 1 2 3 4 5 6 7 8 9 A B
 /// ```
 ///
-/// Here, we have a sequence of two rewrites. We assume rewrites in a
-/// sequence are not adjacent and do not overlap and are sorted. We
-/// also assume that the starting offset for each replacement is in
-/// terms of the *final* array (reading left-to-right). Thus, the
-/// above is encoded as the sequence `(2;4;"llo"),(7;2;"OR")`.
+/// Here, we have a sequence of two rewrites. Rewrites are always
+/// stored in sorted order such that: **(a)** they are not adjacent
+/// (i.e. as then they could be merged); and **(b)** they do not
+/// overlap (i.e. as order of application is ambiguous). We also
+/// assume that the starting offset for each replacement is in terms
+/// of the *final* array (reading left-to-right). Thus, the above is
+/// encoded internally as the sequence `(2;4;"llo"),(7;2;"OR")`.
 #[derive(Clone,Debug,PartialEq)]
 pub struct VecDelta<T> {
     /// Meta data describing rewrites.  For each element, the first
@@ -49,7 +51,7 @@ impl<T> VecDelta<T> {
 
     /// Check whether this delta contains any rewrites or not.
     pub fn is_empty(&self) -> bool { self.regions.is_empty() }
-    
+
     /// Get the `ith` rewrite contained within this `VecDelta`.  This
     /// returns a `SliceRewrite` which refers to data held internally
     /// within this `VecDelta`.
